@@ -12398,6 +12398,440 @@ class _OpenStackCloudMixin(_normalize.Normalizer):
             firewall_group[key + '_id'] = val
             del firewall_group[key]
 
+    @_utils.valid_kwargs(
+        'action', 'description', 'destination_ip_address', 
+        'destination_port', 'enabled', 'firewall_policy_id', 'ip_version',
+        'name', 'project_id', 'tenant_id', 'protocol', 
+        'shared', 'source_ip_address', 'source_port')
+    def create_firewall_v1_rule(self, **kwargs):
+        """
+        Creates firewall v1 rule.
+
+        :param action: Action performed on traffic.
+            Valid values: allow, deny
+            Defaults to deny.
+        :param description: Human-readable description.
+        :param destination_ip_address: IPv4-, IPv6 address or CIDR.
+        :param destination_port: Port or port range (e.g. 80:90)
+        :param bool enabled: Status of firewall rule. You can disable rules
+                             without disassociating them from firewall
+                             policies. Defaults to True.
+        :param firewall_policy_id: ID of firewall policy.
+        :param int ip_version: IP Version.
+                           Valid values: 4, 6
+                           Defaults to 4.
+        :param name: Human-readable name.
+        :param project_id: Project id.
+        :param tenant_id: Project id.
+        :param protocol: IP protocol.
+                         Valid values: icmp, tcp, udp, null
+        :param bool shared: Visibility to other projects.
+                       Defaults to False.
+        :param source_ip_address: IPv4-, IPv6 address or CIDR.
+        :param source_port: Port or port range (e.g. 80:90)
+        :raises: BadRequestException if parameters are malformed
+        :return: created firewall rule
+        :rtype: FirewallV1Rule
+        """
+        return self.network.create_firewall_v1_rule(**kwargs)
+
+    def delete_firewall_v1_rule(self, name_or_id, filters=None):
+        """
+        Deletes firewall v1 rule.
+        Prints debug message in case to-be-deleted resource was not found.
+
+        :param name_or_id: firewall v1 rule name or id
+        :param dict filters: optional filters
+        :raises: DuplicateResource on multiple matches
+        :return: True if resource is successfully deleted, False otherwise.
+        :rtype: bool
+        """
+        if not filters:
+            filters = {}
+        try:
+            firewall_v1_rule = self.network.find_firewall_v1_rule(
+                name_or_id, ignore_missing=False, **filters)
+            self.network.delete_firewall_v1_rule(firewall_v1_rule,
+                                              ignore_missing=False)
+        except exceptions.ResourceNotFound:
+            self.log.debug('Firewall v1 rule %s not found for deleting',
+                           name_or_id)
+            return False
+        return True
+
+    def get_firewall_v1_rule(self, name_or_id, filters=None):
+        """
+        Retrieves a single firewall v1 rule.
+
+        :param name_or_id: firewall v1 rule name or id
+        :param dict filters: optional filters
+        :raises: DuplicateResource on multiple matches
+        :return: firewall v1 rule dict or None if not found
+        :rtype: FirewallV1Rule
+        """
+        if not filters:
+            filters = {}
+        return self.network.find_firewall_v1_rule(name_or_id, **filters)
+
+    def list_firewall_v1_rules(self, filters=None):
+        """
+        Lists firewall v1 rules.
+
+        :param dict filters: optional filters
+        :return: list of firewall v1 rules
+        :rtype: list[FirewallV1Rule]
+        """
+        if not filters:
+            filters = {}
+        return list(self.network.firewall_v1_rules(**filters))
+
+    @_utils.valid_kwargs(
+        'action', 'description', 'destination_ip_address', 'destination_port', 
+        'enabled', 'ip_version', 'name', 'project_id', 'tenant_id', 'protocol',
+        'shared', 'source_ip_address', 'source_port')
+    def update_firewall_v1_rule(self, name_or_id, filters=None, **kwargs):
+        """
+        Updates firewall rule.
+
+        :param name_or_id: firewall v1 rule name or id
+        :param dict filters: optional filters
+        :param kwargs: firewall v1 rule update parameters.
+            See create_firewall_v1_rule docstring for valid parameters.
+        :raises: BadRequestException if parameters are malformed
+        :raises: NotFoundException if resource is not found
+        :return: updated firewall v1 rule
+        :rtype: FirewallV1Rule
+        """
+        if not filters:
+            filters = {}
+        firewall_v1_rule = self.network.find_firewall_v1_rule(
+            name_or_id, ignore_missing=False, **filters)
+
+        return self.network.update_firewall_v1_rule(firewall_v1_rule, **kwargs)
+
+    def _get_firewall_v1_rule_ids(self, name_or_id_list, filters=None):
+        """
+        Takes a list of firewall v1 rule name or ids, looks them up and returns
+        a list of firewall v1 rule ids.
+
+        Used by `create_firewall_v1_policy` and `update_firewall_v1_policy`.
+
+        :param list[str] name_or_id_list: firewall v1 rule name or id list
+        :param dict filters: optional filters
+        :raises: DuplicateResource on multiple matches
+        :raises: NotFoundException if resource is not found
+        :return: list of firewall v1 rule ids
+        :rtype: list[str]
+        """
+        if not filters:
+            filters = {}
+        ids_list = []
+        for name_or_id in name_or_id_list:
+            ids_list.append(self.network.find_firewall_v1_rule(
+                name_or_id, ignore_missing=False, **filters)['id'])
+        return ids_list
+
+    @_utils.valid_kwargs('audited', 'description', 'firewall_rules', 'name',
+                         'project_id', 'tenant_id', 'shared')
+    def create_firewall_v1_policy(self, **kwargs):
+        """
+        Create firewall v1 policy.
+
+        :param bool audited: Status of audition of firewall v1 policy.
+                             Set to False each time the firewall v1 policy or the
+                             associated firewall v1 rules are changed.
+                             Has to be explicitly set to True.
+        :param description: Human-readable description.
+        :param list[str] firewall_rules: List of associated firewall v1 rules.
+        :param name: Human-readable name.
+        :param project_id: Project id.
+        :param tenant_id: Project id.
+        :param bool shared: Visibility to other projects.
+                       Defaults to False.
+        :raises: BadRequestException if parameters are malformed
+        :raises: ResourceNotFound if a resource from firewall_v1_list not found
+        :return: created firewall v1 policy
+        :rtype: FirewallV1Policy
+        """
+        if 'firewall_rules' in kwargs:
+            kwargs['firewall_rules'] = self._get_firewall_v1_rule_ids(
+                kwargs['firewall_rules'])
+
+        return self.network.create_firewall_v1_policy(**kwargs)
+
+    def delete_firewall_v1_policy(self, name_or_id, filters=None):
+        """
+        Deletes firewall v1 policy.
+        Prints debug message in case to-be-deleted resource was not found.
+
+        :param name_or_id: firewall v1 policy name or id
+        :param dict filters: optional filters
+        :raises: DuplicateResource on multiple matches
+        :return: True if resource is successfully deleted, False otherwise.
+        :rtype: bool
+        """
+        if not filters:
+            filters = {}
+        try:
+            firewall_v1_policy = self.network.find_firewall_v1_policy(
+                name_or_id, ignore_missing=False, **filters)
+            self.network.delete_firewall_v1_policy(firewall_v1_policy,
+                                                ignore_missing=False)
+        except exceptions.ResourceNotFound:
+            self.log.debug('Firewall v1 policy %s not found for deleting',
+                           name_or_id)
+            return False
+        return True
+
+    def get_firewall_v1_policy(self, name_or_id, filters=None):
+        """
+        Retrieves a single firewall v1 policy.
+
+        :param name_or_id: firewall v1 policy name or id
+        :param dict filters: optional filters
+        :raises: DuplicateResource on multiple matches
+        :return: firewall v1 policy or None if not found
+        :rtype: FirewallV1Policy
+        """
+        if not filters:
+            filters = {}
+        return self.network.find_firewall_v1_policy(name_or_id, **filters)
+
+    def list_firewall_v1_policies(self, filters=None):
+        """
+        Lists firewall v1 policies.
+
+        :param dict filters: optional filters
+        :return: list of firewall v1 policies
+        :rtype: list[FirewallV1Policy]
+        """
+        if not filters:
+            filters = {}
+        return list(self.network.firewall_v1_policies(**filters))
+
+    @_utils.valid_kwargs('audited', 'description', 'firewall_rules', 'name',
+                         'project_id', 'shared')
+    def update_firewall_v1_policy(self, name_or_id, filters=None, **kwargs):
+        """
+        Updates firewall v1 policy.
+
+        :param name_or_id: firewall v1 policy name or id
+        :param dict filters: optional filters
+        :param kwargs: firewall v1 policy update parameters
+            See create_firewall_v1_policy docstring for valid parameters.
+        :raises: BadRequestException if parameters are malformed
+        :raises: DuplicateResource on multiple matches
+        :raises: ResourceNotFound if resource is not found
+        :return: updated firewall v1 policy
+        :rtype: FirewallV1Policy
+        """
+        if not filters:
+            filters = {}
+        firewall_policy = self.network.find_firewall_v1_policy(
+            name_or_id, ignore_missing=False, **filters)
+
+        if 'firewall_rules' in kwargs:
+            kwargs['firewall_rules'] = self._get_firewall_v1_rule_ids(
+                kwargs['firewall_rules'])
+
+        return self.network.update_firewall_v1_policy(firewall_policy, **kwargs)
+
+    def insert_v1_rule_into_policy(self, name_or_id, rule_name_or_id,
+                                insert_after=None, insert_before=None,
+                                filters=None):
+        """
+        Adds firewall v1 rule to the firewall_rules list of a firewall v1 policy.
+        Short-circuits and returns the firewall v1 policy early if the firewall
+        rule id is already present in the firewall_rules list.
+        This method doesn't do re-ordering. If you want to move a firewall rule
+        or or down the list, you have to remove and re-add it.
+
+        :param name_or_id: firewall v1 policy name or id
+        :param rule_name_or_id: firewall v1 rule name or id
+        :param insert_after: rule name or id that should precede added rule
+        :param insert_before: rule name or id that should succeed added rule
+        :param dict filters: optional filters
+        :raises: DuplicateResource on multiple matches
+        :raises: ResourceNotFound if firewall v1 policy or any of the firewall v1
+                 rules (inserted, after, before) is not found.
+        :return: updated firewall v1 policy
+        :rtype: FirewallV1Policy
+        """
+        if not filters:
+            filters = {}
+        firewall_v1_policy = self.network.find_firewall_v1_policy(
+            name_or_id, ignore_missing=False, **filters)
+
+        firewall_v1_rule = self.network.find_firewall_v1_rule(
+            rule_name_or_id, ignore_missing=False)
+        # short-circuit if rule already in firewall_rules list
+        # the API can't do any re-ordering of existing rules
+        if firewall_v1_rule['id'] in firewall_v1_policy['firewall_rules']:
+            self.log.debug(
+                'Firewall v1 rule %s already associated with firewall policy %s',
+                rule_name_or_id, name_or_id)
+            return firewall_v1_policy
+
+        pos_params = {}
+        if insert_after is not None:
+            pos_params['insert_after'] = self.network.find_firewall_v1_rule(
+                insert_after, ignore_missing=False)['id']
+
+        if insert_before is not None:
+            pos_params['insert_before'] = self.network.find_firewall_v1_rule(
+                insert_before, ignore_missing=False)['id']
+
+        return self.network.insert_v1_rule_into_policy(firewall_v1_policy['id'],
+                                                    firewall_v1_rule['id'],
+                                                    **pos_params)
+
+    def remove_v1_rule_from_policy(self, name_or_id, rule_name_or_id,
+                                filters=None):
+        """
+        Remove firewall v1 rule from firewall policy's firewall_rules list.
+        Short-circuits and returns firewall v1 policy early if firewall rule
+        is already absent from the firewall_rules list.
+
+        :param name_or_id: firewall v1 policy name or id
+        :param rule_name_or_id: firewall v1 rule name or id
+        :param dict filters: optional filters
+        :raises: DuplicateResource on multiple matches
+        :raises: ResourceNotFound if firewall v1 policy is not found
+        :return: updated firewall v1 policy
+        :rtype: FirewallV1Policy
+        """
+        if not filters:
+            filters = {}
+        firewall_v1_policy = self.network.find_firewall_v1_policy(
+            name_or_id, ignore_missing=False, **filters)
+
+        firewall_v1_rule = self.network.find_firewall_v1_rule(rule_name_or_id)
+        if not firewall_v1_rule:
+            # short-circuit: if firewall rule is not found,
+            # return current firewall policy
+            self.log.debug('Firewall rule %s not found for removing',
+                           rule_name_or_id)
+            return firewall_v1_policy
+
+        if firewall_v1_rule['id'] not in firewall_v1_policy['firewall_rules']:
+            # short-circuit: if firewall v1 rule id is not associated,
+            # log it to debug and return current firewall v1 policy
+            self.log.debug(
+                'Firewall v1 rule %s not associated with firewall policy %s',
+                rule_name_or_id, name_or_id)
+            return firewall_v1_policy
+
+        return self.network.remove_rule_from_policy(firewall_v1_policy['id'],
+                                                    firewall_v1_rule['id'])
+
+    @_utils.valid_kwargs(
+        'admin_state_up', 'description', 'firewall_policy_id', 
+        'name', 'router_ids', 'project_id', 'tenant_id','shared')
+    def create_firewall_v1(self, **kwargs):
+        """
+        Creates firewall v1. The firewall must be associated with a firewall policy.
+        If admin_state_up is false, the firewall would block all traffic.
+
+        :param bool admin_state_up: State of firewall group.
+                                    Will block all traffic if set to False.
+                                    Defaults to True.
+        :param description: Human-readable description.
+        :param firewall_policy_id: The ID of the policy that is associated with the firewall.
+        :param name: Human-readable name.
+        :param list[str] router_ids: List of associated routers
+        :param project_id: Project id.
+        :param tenant_id: Project id.
+        :param shared: Visibility to other projects.
+                       Defaults to False.
+        :raises: BadRequestException if parameters are malformed
+        :raises: DuplicateResource on multiple matches
+        :raises: ResourceNotFound if (ingress-, egress-) firewall policy or
+                 a port is not found.
+        :return: created firewall group
+        :rtype: FirewallGroup
+        """
+        if 'router_ids' in kwargs:
+            kwargs['router_ids'] = self._get_router_ids(kwargs['router_ids'])
+        return self.network.create_firewall_v1(**kwargs)
+
+    def delete_firewall_v1(self, name_or_id, filters=None):
+        """
+        Deletes firewall v1.
+        Prints debug message in case to-be-deleted resource was not found.
+
+        :param name_or_id: firewall v1 name or id
+        :param dict filters: optional filters
+        :raises: DuplicateResource on multiple matches
+        :return: True if resource is successfully deleted, False otherwise.
+        :rtype: bool
+        """
+        if not filters:
+            filters = {}
+        try:
+            firewall_v1 = self.network.find_firewall_v1(
+                name_or_id, ignore_missing=False, **filters)
+            self.network.delete_firewall_v1(firewall_v1,
+                                               ignore_missing=False)
+        except exceptions.ResourceNotFound:
+            self.log.debug('Firewall v1 %s not found for deleting',
+                           name_or_id)
+            return False
+        return True
+
+    def get_firewall_v1(self, name_or_id, filters=None):
+        """
+        Retrieves firewall v1.
+
+        :param name_or_id: firewall v1 name or id
+        :param dict filters: optional filters
+        :raises: DuplicateResource on multiple matches
+        :return: firewall v1 or None if not found
+        :rtype: FirewallV1
+        """
+        if not filters:
+            filters = {}
+        return self.network.find_firewall_v1(name_or_id, **filters)
+
+    def list_firewalls_v1(self, filters=None):
+        """
+        Lists firewalls v1.
+
+        :param dict filters: optional filters
+        :return: list of firewalls v1
+        :rtype: list[FirewallV1]
+        """
+        if not filters:
+            filters = {}
+        return list(self.network.firewalls_v1(**filters))
+
+    @_utils.valid_kwargs(
+        'admin_state_up', 'description', 'firewall_policy_id', 'name', 
+        'router_ids', 'project_id', 'shared')
+    def update_firewall_v1(self, name_or_id, filters=None, **kwargs):
+        """
+        Updates firewall v1.
+        To update a service, the service status cannot be a PENDING_* status.
+
+        :param name_or_id: firewall v1 name or id
+        :param dict filters: optional filters
+        :param kwargs: firewall v1 update parameters
+            See create_firewall_v1 docstring for valid parameters.
+        :raises: BadRequestException if parameters are malformed
+        :raises: DuplicateResource on multiple matches
+        :raises: ResourceNotFound if firewall v1, a firewall v1 policy
+                 (egress, ingress) or port is not found
+        :return: updated firewall v1
+        :rtype: FirewallV1
+        """
+        if not filters:
+            filters = {}
+        firewall_v1 = self.network.find_firewall_v1(
+            name_or_id, ignore_missing=False, **filters)
+
+        if 'router_ids' in kwargs:
+            kwargs['router_ids'] = self._get_router_ids(kwargs['router_ids'])
+        return self.network.update_firewall_v1(firewall_v1, **kwargs)
+
     def _get_port_ids(self, name_or_id_list, filters=None):
         """
         Takes a list of port names or ids, retrieves ports and returns a list
@@ -12417,4 +12851,25 @@ class _OpenStackCloudMixin(_normalize.Normalizer):
                 raise exceptions.ResourceNotFound(
                     'Port {id} not found'.format(id=name_or_id))
             ids_list.append(port['id'])
+        return ids_list
+
+    def _get_router_ids(self, name_or_id_list, filters=None):
+        """
+        Takes a list of router names or ids, retrieves routers and returns a list
+        with router ids only.
+
+        :param list[str] name_or_id_list: list of router names or ids
+        :param dict filters: optional filters
+        :raises: SDKException on multiple matches
+        :raises: ResourceNotFound if a router is not found
+        :return: list of router ids
+        :rtype: list[str]
+        """
+        ids_list = []
+        for name_or_id in name_or_id_list:
+            router = self.get_router(name_or_id, filters)
+            if not router:
+                raise exceptions.ResourceNotFound(
+                    'Router {id} not found'.format(id=name_or_id))
+            ids_list.append(router['id'])
         return ids_list
